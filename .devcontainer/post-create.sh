@@ -51,15 +51,6 @@ if [ -d "$REPO_ROOT/infra/aws/cdk" ]; then
   npm install
 fi
 
-echo "🧩 Ensuring C# Dev Tools proposed API configuration..."
-EXT_PATTERN="/home/vscode/.vscode-server/extensions/jakubkozera.csharp-dev-tools-*"
-EXT_DIR="$(ls -d $EXT_PATTERN 2>/dev/null | sort -V | tail -n 1 || true)"
-if [ -n "$EXT_DIR" ] && [ -f "$EXT_DIR/package.json" ]; then
-  node -e 'const fs=require("fs"); const p=process.argv[1]; const j=JSON.parse(fs.readFileSync(p,"utf8")); const arr=Array.isArray(j.enabledApiProposals)?j.enabledApiProposals:[]; if(!arr.includes("treeViewActiveItem")) arr.push("treeViewActiveItem"); j.enabledApiProposals=arr; fs.writeFileSync(p, JSON.stringify(j,null,2)+"\n"); console.log("✅ Patched", p, "enabledApiProposals=", j.enabledApiProposals.join(", "));' "$EXT_DIR/package.json"
-else
-  echo "ℹ️  csharp-dev-tools extension not found yet; skipping proposed API patch."
-fi
-
 echo "✅ Setup complete!"
 echo ""
 echo "Tools:"

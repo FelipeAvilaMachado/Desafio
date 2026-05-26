@@ -57,7 +57,6 @@
       "extensions": [
         "ms-dotnettools.csharp",
         "ms-dotnettools.vscode-dotnet-runtime",
-        "JakubKozera.csharp-dev-tools",
         "esbenp.prettier-vscode",
         "dbaeumer.vscode-eslint",
         "ms-vscode.makefile-tools",

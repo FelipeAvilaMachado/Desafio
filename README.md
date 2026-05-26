@@ -37,7 +37,7 @@ Ela é composta por:
 - Em ambiente local com Aspire, a mensageria utiliza **RabbitMQ** (`ConnectionStrings:messaging` em formato AMQP).
 - Em nuvem, o mesmo contrato de mensageria suporta **Azure Service Bus** (Azure) e **Amazon SQS** (AWS).
 - O worker de consolidado opera em modo **event-driven** quando há broker configurado; sem broker, entra em **fallback por polling** para manter disponibilidade funcional.
-- Benchmark prático executado em container com **2 vCPU** e **2 GB RAM** atingiu, em média, **1350 req/s** (cenário não otimizado).
+- Benchmark prático executado em container com **2 vCPU** e **2 GB RAM** atingiu, em média, **1300 req/s** (cenário não otimizado).
 
 Existem diversas maneiras de satisfazer os requisitos deste desafio, mas, por ser uma demanda baixa (picos de apenas 50 req/s), o ideal é manter a simplicidade sem perder a robustez.
 Azure APIM centraliza os endpoints e a autenticação.
@@ -253,6 +253,12 @@ Separar alguns endpoints críticos em Azure Functions/AWS Lambdas se torna prát
 - Correlação entre API, banco, cache e processamento assíncrono
 - Base de observabilidade para métricas de latência (p50/p90), erro e throughput
 
+### Evidência visual da aplicação
+
+A imagem abaixo mostra o painel funcional da solução, com criação de lançamento, execução de carga, consulta e disparo de consolidação no mesmo fluxo operacional.
+
+![Painel da aplicação com API, carga e consolidação](images/readme/painel-api-carga-consolidacao.png)
+
 ### Endpoints da API
 
 #### Lançamentos
@@ -387,6 +393,12 @@ Além dos testes automatizados, a solução deve ser validada com os seguintes c
 - falhas temporárias no barramento com confirmação de reprocessamento;
 - health checks e traces distribuídos durante a execução local no Aspire.
 
+### Evidência visual de observabilidade
+
+A tela de Traces do Aspire mostra o rastreamento distribuído das requisições, com duração por operação e correlação entre endpoints de lançamentos e consolidado.
+
+![Tela de traces no .NET Aspire com latências e spans](images/readme/aspire-traces.png)
+
 ---
 
 ## 7. Como abrir o DevContainer e rodar o .NET Aspire
@@ -439,6 +451,12 @@ O .NET Aspire vai automaticamente:
 | Health Check Worker | http://localhost:8081/health |
 
 > As portas exatas são exibidas no terminal do Aspire e no Dashboard.
+
+### Evidência visual do ambiente local
+
+A captura abaixo confirma os recursos ativos no dashboard do Aspire (API, worker, SQL Server, Redis, mensageria e frontend), validando a execução fim a fim no DevContainer.
+
+![Recursos ativos no dashboard do .NET Aspire](images/readme/aspire-resources.png)
 
 ### Executar os testes
 
