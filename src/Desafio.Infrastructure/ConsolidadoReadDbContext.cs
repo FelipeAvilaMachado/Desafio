@@ -5,8 +5,8 @@ using Microsoft.EntityFrameworkCore;
 namespace Desafio.Infrastructure;
 
 /// <summary>
-/// Read-only DbContext pointing at the SQL read replica.
-/// Never used for writes — SaveChanges throws.
+/// DbContext used by the consolidado read model.
+/// It can be updated by background/manual consolidation processes.
 /// </summary>
 public sealed class ConsolidadoReadDbContext(DbContextOptions<ConsolidadoReadDbContext> options)
     : DbContext(options), IConsolidadoReadDbContext
@@ -35,7 +35,26 @@ public sealed class ConsolidadoReadDbContext(DbContextOptions<ConsolidadoReadDbC
         });
     }
 
-    public override int SaveChanges() => throw new InvalidOperationException("This context is read-only.");
-    public override Task<int> SaveChangesAsync(CancellationToken ct = default) =>
-        throw new InvalidOperationException("This context is read-only.");
+    public Task UpsertConsolidadoDiarioAsync(ConsolidadoDiario consolidado, CancellationToken ct = default)
+    {
+        var now = DateTime.UtcNow;
+        var newId = Guid.NewGuid();
+
+        return Database.ExecuteSqlInterpolatedAsync(
+            $"""
+            MERGE [dbo].[ConsolidadosDiarios] WITH (HOLDLOCK) AS target
+            USING (VALUES ({consolidado.Data}, {consolidado.TotalDebitos}, {consolidado.TotalCreditos}, {now}))
+            AS source ([Data], [TotalDebitos], [TotalCreditos], [AtualizadoEm])
+            ON target.[Data] = source.[Data]
+            WHEN MATCHED THEN
+                UPDATE SET
+                    [TotalDebitos] = source.[TotalDebitos],
+                    [TotalCreditos] = source.[TotalCreditos],
+                    [AtualizadoEm] = source.[AtualizadoEm]
+            WHEN NOT MATCHED THEN
+                INSERT ([Id], [Data], [TotalDebitos], [TotalCreditos], [AtualizadoEm])
+                VALUES ({newId}, source.[Data], source.[TotalDebitos], source.[TotalCreditos], source.[AtualizadoEm]);
+            """,
+            ct);
+    }
 }

@@ -1,181 +1,561 @@
-import { useState, useEffect } from 'react';
-import aspireLogo from '/Aspire.png';
+import { useEffect, useMemo, useState } from 'react';
 import './App.css';
 
-interface WeatherForecast {
-  date: string;
-  temperatureC: number;
-  temperatureF: number;
-  summary: string;
+interface LancamentoDto {
+  id: string;
+  tipo: 'Debito' | 'Credito';
+  valor: number;
+  descricao: string;
+  data: string;
+  criadoEm: string;
+}
+
+interface ConsolidadoDiarioDto {
+  data: string;
+  totalDebitos: number;
+  totalCreditos: number;
+  saldo: number;
+  atualizadoEm: string;
+}
+
+interface DispararConsolidacaoResult {
+  datasProcessadas: number;
+  datas: string[];
+  totalDebitos: number;
+  totalCreditos: number;
+  saldo: number;
+}
+
+interface LoadStats {
+  total: number;
+  success: number;
+  failed: number;
+  elapsedMs: number;
+  reqPerSecond: number;
+}
+
+const pad2 = (value: number) => value.toString().padStart(2, '0');
+const formatCurrency = (value: number) =>
+  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+
+const todayIso = (() => {
+  const now = new Date();
+  return `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
+})();
+
+const monthStartIso = (() => {
+  const now = new Date();
+  return `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-01`;
+})();
+
+const randomAmount = () => Number((Math.random() * 950 + 50).toFixed(2));
+const randomType = () => (Math.random() < 0.5 ? 'Debito' : 'Credito') as 'Debito' | 'Credito';
+const maxLoadTotal = 5000;
+const maxLoadConcurrency = 256;
+
+const devApimKey = import.meta.env.VITE_APIM_SUBSCRIPTION_KEY || 'dev-apim-key-456';
+const devEntraToken = import.meta.env.VITE_ENTRA_TOKEN || 'dev-entra-token-123';
+
+async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(path, {
+    headers: {
+      'Content-Type': 'application/json',
+      'Ocp-Apim-Subscription-Key': devApimKey,
+      Authorization: `Bearer ${devEntraToken}`,
+      ...(init?.headers ?? {}),
+    },
+    ...init,
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || `Erro HTTP ${response.status}`);
+  }
+
+  if (response.status === 204) {
+    return null as T;
+  }
+
+  return (await response.json()) as T;
 }
 
 function App() {
-  const [weatherData, setWeatherData] = useState<WeatherForecast[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [useCelsius, setUseCelsius] = useState(false);
+  const [globalError, setGlobalError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [working, setWorking] = useState(false);
 
-  const fetchWeatherForecast = async () => {
+  const [lancamentos, setLancamentos] = useState<LancamentoDto[]>([]);
+  const [lancamentoDetalhe, setLancamentoDetalhe] = useState<LancamentoDto | null>(null);
+  const [consolidadoDiario, setConsolidadoDiario] = useState<ConsolidadoDiarioDto | null>(null);
+  const [consolidadoPeriodo, setConsolidadoPeriodo] = useState<ConsolidadoDiarioDto[]>([]);
+  const [consolidacaoManual, setConsolidacaoManual] = useState<DispararConsolidacaoResult | null>(null);
+  const [loadStats, setLoadStats] = useState<LoadStats | null>(null);
+
+  const [consultaData, setConsultaData] = useState(todayIso);
+  const [periodoInicio, setPeriodoInicio] = useState(monthStartIso);
+  const [periodoFim, setPeriodoFim] = useState(todayIso);
+
+  const [novoTipo, setNovoTipo] = useState<'Debito' | 'Credito'>('Credito');
+  const [novoValor, setNovoValor] = useState('100.00');
+  const [novaDescricao, setNovaDescricao] = useState('Lançamento manual');
+  const [novaData, setNovaData] = useState(todayIso);
+
+  const [loadTotal, setLoadTotal] = useState(1000);
+  const [loadConcurrency, setLoadConcurrency] = useState(48);
+  const [dispararAposCarga, setDispararAposCarga] = useState(true);
+
+  const resumo = useMemo(() => {
+    let creditos = 0;
+    let debitos = 0;
+
+    for (const lancamento of lancamentos) {
+      if (lancamento.tipo === 'Credito') creditos += lancamento.valor;
+      else debitos += lancamento.valor;
+    }
+
+    return {
+      total: lancamentos.length,
+      creditos,
+      debitos,
+      saldo: creditos - debitos,
+    };
+  }, [lancamentos]);
+
+  const refreshLancamentos = async (date: string) => {
+    const url = date ? `/api/lancamentos?data=${encodeURIComponent(date)}` : '/api/lancamentos';
+    const data = await apiFetch<LancamentoDto[]>(url);
+    setLancamentos(data);
+  };
+
+  const refreshConsolidadoDiario = async (date: string) => {
+    const response = await fetch(`/api/consolidado/diario?data=${encodeURIComponent(date)}`, {
+      headers: {
+        'Ocp-Apim-Subscription-Key': devApimKey,
+        Authorization: `Bearer ${devEntraToken}`,
+      },
+    });
+    if (response.status === 404) {
+      setConsolidadoDiario(null);
+      return;
+    }
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(text || `Erro HTTP ${response.status}`);
+    }
+
+    const data = (await response.json()) as ConsolidadoDiarioDto;
+    setConsolidadoDiario(data);
+  };
+
+  const refreshConsolidadoPeriodo = async (inicio: string, fim: string) => {
+    const url = `/api/consolidado/periodo?dataInicio=${encodeURIComponent(inicio)}&dataFim=${encodeURIComponent(fim)}`;
+    const data = await apiFetch<ConsolidadoDiarioDto[]>(url);
+    setConsolidadoPeriodo(data);
+  };
+
+  const refreshAll = async () => {
+    setGlobalError(null);
     setLoading(true);
-    setError(null);
-    
+
     try {
-      const response = await fetch('/api/weatherforecast');
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const data: WeatherForecast[] = await response.json();
-      setWeatherData(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch weather data');
-      console.error('Error fetching weather forecast:', err);
+      await Promise.all([
+        refreshLancamentos(consultaData),
+        refreshConsolidadoDiario(consultaData),
+        refreshConsolidadoPeriodo(periodoInicio, periodoFim),
+      ]);
+    } catch (error) {
+      setGlobalError(error instanceof Error ? error.message : 'Falha ao atualizar dados');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchWeatherForecast();
+    void refreshAll();
   }, []);
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString(undefined, { 
-      weekday: 'short', 
-      month: 'short', 
-      day: 'numeric' 
-    });
+  const onCriarLancamento = async () => {
+    setGlobalError(null);
+    setWorking(true);
+
+    try {
+      const created = await apiFetch<LancamentoDto>('/api/lancamentos', {
+        method: 'POST',
+        body: JSON.stringify({
+          tipo: novoTipo,
+          valor: Number(novoValor),
+          descricao: novaDescricao,
+          data: novaData,
+        }),
+      });
+
+      setLancamentoDetalhe(created);
+      await refreshAll();
+    } catch (error) {
+      setGlobalError(error instanceof Error ? error.message : 'Falha ao criar lançamento');
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  const onBuscarLancamentoPorId = async (id: string) => {
+    setGlobalError(null);
+
+    try {
+      const data = await apiFetch<LancamentoDto>(`/api/lancamentos/${id}`);
+      setLancamentoDetalhe(data);
+    } catch (error) {
+      setGlobalError(error instanceof Error ? error.message : 'Falha ao buscar lançamento');
+      setLancamentoDetalhe(null);
+    }
+  };
+
+  const onDispararConsolidacao = async () => {
+    setGlobalError(null);
+    setWorking(true);
+
+    try {
+      const result = await apiFetch<DispararConsolidacaoResult>('/api/consolidado/disparar', {
+        method: 'POST',
+        body: JSON.stringify({ dataInicio: periodoInicio, dataFim: periodoFim }),
+      });
+
+      setConsolidacaoManual(result);
+      await Promise.all([
+        refreshConsolidadoDiario(consultaData),
+        refreshConsolidadoPeriodo(periodoInicio, periodoFim),
+      ]);
+    } catch (error) {
+      setGlobalError(error instanceof Error ? error.message : 'Falha ao disparar consolidação');
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  const onRodarCarga = async () => {
+    setGlobalError(null);
+    setWorking(true);
+
+    const total = Math.max(1, loadTotal);
+    const concurrency = Math.min(total, Math.max(1, loadConcurrency));
+    let sent = 0;
+    let success = 0;
+    let failed = 0;
+
+    const start = performance.now();
+
+    const worker = async () => {
+      while (sent < total) {
+        const current = sent;
+        sent += 1;
+
+        const date = new Date(consultaData);
+        date.setDate(date.getDate() - (current % 5));
+        const payloadDate = `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+
+        try {
+          await apiFetch<LancamentoDto>('/api/lancamentos', {
+            method: 'POST',
+            body: JSON.stringify({
+              tipo: randomType(),
+              valor: randomAmount(),
+              descricao: `Carga #${current + 1}`,
+              data: payloadDate,
+            }),
+          });
+          success += 1;
+        } catch {
+          failed += 1;
+        }
+      }
+    };
+
+    try {
+      await Promise.all(Array.from({ length: concurrency }, () => worker()));
+
+      const elapsedMs = performance.now() - start;
+      const reqPerSecond = elapsedMs > 0 ? (success / elapsedMs) * 1000 : success;
+
+      setLoadStats({ total, success, failed, elapsedMs, reqPerSecond });
+
+      if (dispararAposCarga) {
+        await onDispararConsolidacao();
+      } else {
+        await refreshAll();
+      }
+    } catch (error) {
+      setGlobalError(error instanceof Error ? error.message : 'Falha durante teste de carga');
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  const applyBurstPreset = () => {
+    setGlobalError(null);
+    setLoadStats(null);
+    setLoadTotal(1000);
+    setLoadConcurrency(64);
+    setDispararAposCarga(false);
   };
 
   return (
     <div className="app-container">
       <header className="app-header">
-        <a 
-          href="https://aspire.dev" 
-          target="_blank" 
-          rel="noopener noreferrer"
-          aria-label="Visit Aspire website (opens in new tab)"
-          className="logo-link"
-        >
-          <img src={aspireLogo} className="logo" alt="Aspire logo" />
-        </a>
-        <h1 className="app-title">Aspire Starter</h1>
-        <p className="app-subtitle">Modern distributed application development</p>
+        <p className="kicker">Desafio Financeiro</p>
+        <h1 className="app-title">Painel de API + Carga + Consolidação</h1>
+        <p className="app-subtitle">
+          Simule tráfego de lançamentos, consulte o consolidado e dispare a consolidação sob demanda.
+        </p>
       </header>
 
       <main className="main-content">
-        <section className="weather-section" aria-labelledby="weather-heading">
-          <div className="card">
-            <div className="section-header">
-              <h2 id="weather-heading" className="section-title">Weather Forecast</h2>
-              <div className="header-actions">
-                <fieldset className="toggle-switch" aria-label="Temperature unit selection">
-                  <legend className="visually-hidden">Temperature unit</legend>
-                  <button 
-                    className={`toggle-option ${!useCelsius ? 'active' : ''}`}
-                    onClick={() => setUseCelsius(false)}
-                    aria-pressed={!useCelsius}
-                    type="button"
-                  >
-                    <span aria-hidden="true">°F</span>
-                    <span className="visually-hidden">Fahrenheit</span>
-                  </button>
-                  <button 
-                    className={`toggle-option ${useCelsius ? 'active' : ''}`}
-                    onClick={() => setUseCelsius(true)}
-                    aria-pressed={useCelsius}
-                    type="button"
-                  >
-                    <span aria-hidden="true">°C</span>
-                    <span className="visually-hidden">Celsius</span>
-                  </button>
-                </fieldset>
-                <button 
-                  className="refresh-button"
-                  onClick={fetchWeatherForecast} 
-                  disabled={loading}
-                  aria-label={loading ? 'Loading weather forecast' : 'Refresh weather forecast'}
-                  type="button"
-                >
-                  <svg 
-                    className={`refresh-icon ${loading ? 'spinning' : ''}`}
-                    width="20" 
-                    height="20" 
-                    viewBox="0 0 24 24" 
-                    fill="none" 
-                    stroke="currentColor" 
-                    strokeWidth="2"
-                    aria-hidden="true"
-                    focusable="false"
-                  >
-                    <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
-                  </svg>
-                  <span>{loading ? 'Loading...' : 'Refresh'}</span>
-                </button>
-              </div>
+        {globalError && (
+          <section className="error-banner" role="alert" aria-live="polite">
+            {globalError}
+          </section>
+        )}
+
+        <section className="card overview-card">
+          <h2>Visão Geral</h2>
+          <div className="metrics-grid">
+            <article className="metric-card">
+              <h3>Lançamentos</h3>
+              <p>{resumo.total}</p>
+            </article>
+            <article className="metric-card">
+              <h3>Créditos</h3>
+              <p>{formatCurrency(resumo.creditos)}</p>
+            </article>
+            <article className="metric-card">
+              <h3>Débitos</h3>
+              <p>{formatCurrency(resumo.debitos)}</p>
+            </article>
+            <article className="metric-card">
+              <h3>Saldo</h3>
+              <p>{formatCurrency(resumo.saldo)}</p>
+            </article>
+          </div>
+          <button type="button" className="secondary" onClick={refreshAll} disabled={loading || working}>
+            {loading ? 'Atualizando...' : 'Atualizar dados'}
+          </button>
+        </section>
+
+        <section className="card split-card">
+          <div>
+            <h2>Novo Lançamento</h2>
+            <div className="form-grid">
+              <label>
+                Tipo
+                <select value={novoTipo} onChange={(e) => setNovoTipo(e.target.value as 'Debito' | 'Credito')}>
+                  <option value="Credito">Crédito</option>
+                  <option value="Debito">Débito</option>
+                </select>
+              </label>
+              <label>
+                Valor
+                <input value={novoValor} type="number" min="0.01" step="0.01" onChange={(e) => setNovoValor(e.target.value)} />
+              </label>
+              <label>
+                Data
+                <input value={novaData} type="date" onChange={(e) => setNovaData(e.target.value)} />
+              </label>
+              <label className="wide">
+                Descrição
+                <input value={novaDescricao} onChange={(e) => setNovaDescricao(e.target.value)} />
+              </label>
             </div>
-            
-            {error && (
-              <div className="error-message" role="alert" aria-live="polite">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                  <circle cx="12" cy="12" r="10"/>
-                  <line x1="12" y1="8" x2="12" y2="12"/>
-                  <line x1="12" y1="16" x2="12.01" y2="16"/>
-                </svg>
-                <span>{error}</span>
-              </div>
-            )}
-            
-            {loading && weatherData.length === 0 && (
-              <div className="loading-skeleton" role="status" aria-live="polite" aria-label="Loading weather data">
-                {[...Array(5)].map((_, i) => (
-                  <div key={i} className="skeleton-row" aria-hidden="true" />
-                ))}
-                <span className="visually-hidden">Loading weather forecast data...</span>
-              </div>
-            )}
-            
-            {weatherData.length > 0 && (
-              <div className="weather-grid">
-                {weatherData.map((forecast, index) => (
-                  <article key={index} className="weather-card" aria-label={`Weather for ${formatDate(forecast.date)}`}>
-                    <h3 className="weather-date">
-                      <time dateTime={forecast.date}>{formatDate(forecast.date)}</time>
-                    </h3>
-                    <p className="weather-summary">{forecast.summary}</p>
-                    <div className="weather-temps" aria-label={`Temperature: ${useCelsius ? forecast.temperatureC : forecast.temperatureF} degrees ${useCelsius ? 'Celsius' : 'Fahrenheit'}`}>
-                      <div className="temp-group">
-                        <span className="temp-value" aria-hidden="true">
-                          {useCelsius ? forecast.temperatureC : forecast.temperatureF}°
-                        </span>
-                        <span className="temp-unit" aria-hidden="true">{useCelsius ? 'Celsius' : 'Fahrenheit'}</span>
-                      </div>
-                    </div>
-                  </article>
-                ))}
+            <button type="button" className="primary" onClick={onCriarLancamento} disabled={working || loading}>
+              Criar lançamento
+            </button>
+          </div>
+
+          <div>
+            <h2>Teste de Carga</h2>
+            <div className="button-row" style={{ marginBottom: '0.85rem' }}>
+              <button type="button" className="secondary" onClick={applyBurstPreset} disabled={working || loading}>
+                Ativar burst
+              </button>
+            </div>
+            <div className="form-grid compact">
+              <label>
+                Requests
+                <input
+                  type="number"
+                  min={1}
+                  max={maxLoadTotal}
+                  value={loadTotal}
+                  onChange={(e) => setLoadTotal(Math.min(maxLoadTotal, Number(e.target.value || 1)))}
+                />
+                <span className="hint">Máximo sugerido: {maxLoadTotal}</span>
+              </label>
+              <label>
+                Concorrência
+                <input
+                  type="number"
+                  min={1}
+                  max={maxLoadConcurrency}
+                  value={loadConcurrency}
+                  onChange={(e) => setLoadConcurrency(Math.min(maxLoadConcurrency, Number(e.target.value || 1)))}
+                />
+                <span className="hint">Máximo sugerido: {maxLoadConcurrency}</span>
+              </label>
+              <label className="toggle-field wide">
+                <input
+                  type="checkbox"
+                  checked={dispararAposCarga}
+                  onChange={(e) => setDispararAposCarga(e.target.checked)}
+                />
+                Disparar consolidação automaticamente ao final
+              </label>
+            </div>
+            <button type="button" className="primary" onClick={onRodarCarga} disabled={working || loading}>
+              Rodar carga
+            </button>
+
+            {loadStats && (
+              <div className="mini-panel">
+                <strong>Resultado da carga</strong>
+                <p>
+                  {loadStats.success}/{loadStats.total} sucesso, {loadStats.failed} falha, {loadStats.reqPerSecond.toFixed(2)} req/s
+                </p>
               </div>
             )}
           </div>
         </section>
+
+        <section className="card split-card">
+          <div>
+            <h2>Consulta de Dados</h2>
+            <div className="form-grid compact">
+              <label>
+                Data diária
+                <input type="date" value={consultaData} onChange={(e) => setConsultaData(e.target.value)} />
+              </label>
+              <label>
+                Início período
+                <input type="date" value={periodoInicio} onChange={(e) => setPeriodoInicio(e.target.value)} />
+              </label>
+              <label>
+                Fim período
+                <input type="date" value={periodoFim} onChange={(e) => setPeriodoFim(e.target.value)} />
+              </label>
+            </div>
+            <div className="button-row">
+              <button type="button" className="secondary" onClick={refreshAll} disabled={loading || working}>
+                Recarregar consultas
+              </button>
+              <button type="button" className="primary" onClick={onDispararConsolidacao} disabled={loading || working}>
+                Disparar consolidação
+              </button>
+            </div>
+
+            {consolidacaoManual && (
+              <div className="mini-panel">
+                <strong>Consolidação manual</strong>
+                <p>
+                  {consolidacaoManual.datasProcessadas} data(s), saldo total {formatCurrency(consolidacaoManual.saldo)}
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div>
+            <h2>Consolidado Diário ({consultaData})</h2>
+            {consolidadoDiario ? (
+              <div className="mini-panel">
+                <p>Créditos: {formatCurrency(consolidadoDiario.totalCreditos)}</p>
+                <p>Débitos: {formatCurrency(consolidadoDiario.totalDebitos)}</p>
+                <p>Saldo: {formatCurrency(consolidadoDiario.saldo)}</p>
+                <p>Atualizado em: {new Date(consolidadoDiario.atualizadoEm).toLocaleString()}</p>
+              </div>
+            ) : (
+              <div className="mini-panel">
+                <p>Nenhum consolidado encontrado para a data selecionada.</p>
+              </div>
+            )}
+          </div>
+        </section>
+
+        <section className="card split-card">
+          <div>
+            <h2>Lançamentos ({consultaData})</h2>
+            <div className="scroll-area">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Tipo</th>
+                    <th>Descrição</th>
+                    <th>Valor</th>
+                    <th>Ação</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {lancamentos.map((item) => (
+                    <tr key={item.id}>
+                      <td>{item.tipo}</td>
+                      <td>{item.descricao}</td>
+                      <td>{formatCurrency(item.valor)}</td>
+                      <td>
+                        <button type="button" className="inline-btn" onClick={() => onBuscarLancamentoPorId(item.id)}>
+                          Ver
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div>
+            <h2>Consolidado do Período</h2>
+            <div className="scroll-area">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Data</th>
+                    <th>Créditos</th>
+                    <th>Débitos</th>
+                    <th>Saldo</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {consolidadoPeriodo.map((item) => (
+                    <tr key={item.data}>
+                      <td>{item.data}</td>
+                      <td>{formatCurrency(item.totalCreditos)}</td>
+                      <td>{formatCurrency(item.totalDebitos)}</td>
+                      <td>{formatCurrency(item.saldo)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section className="card">
+          <h2>Detalhe por ID</h2>
+          {lancamentoDetalhe ? (
+            <div className="mini-panel">
+              <p>ID: {lancamentoDetalhe.id}</p>
+              <p>Tipo: {lancamentoDetalhe.tipo}</p>
+              <p>Descrição: {lancamentoDetalhe.descricao}</p>
+              <p>Valor: {formatCurrency(lancamentoDetalhe.valor)}</p>
+              <p>Data: {lancamentoDetalhe.data}</p>
+              <p>Criado em: {new Date(lancamentoDetalhe.criadoEm).toLocaleString()}</p>
+            </div>
+          ) : (
+            <div className="mini-panel">
+              <p>Selecione um lançamento na lista para buscar por ID.</p>
+            </div>
+          )}
+        </section>
       </main>
 
       <footer className="app-footer">
-        <nav aria-label="Footer navigation">
-          <a href="https://aspire.dev" target="_blank" rel="noopener noreferrer">
-            Learn more about Aspire<span className="visually-hidden"> (opens in new tab)</span>
-          </a>
-          <a 
-            href="https://github.com/microsoft/aspire" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="github-link"
-            aria-label="View Aspire on GitHub (opens in new tab)"
-          >
-            <img src="/github.svg" alt="" width="24" height="24" aria-hidden="true" />
-            <span className="visually-hidden">GitHub</span>
-          </a>
-        </nav>
+        <p>Frontend conectado aos endpoints reais de API para operação e carga.</p>
       </footer>
     </div>
   );

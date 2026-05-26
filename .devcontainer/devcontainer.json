@@ -45,9 +45,11 @@
     }
   },
   "remoteEnv": {
-    "DOTNET_ROOT": "/usr/local/dotnet",
-    "PATH": "/usr/local/dotnet:/home/vscode/.dotnet/tools:${containerEnv:PATH}",
-    "ASPIRE_CLI_TELEMETRY_OPTOUT": "true"
+    "DOTNET_ROOT": "/usr/share/dotnet",
+    "PATH": "/usr/share/dotnet:/home/vscode/.dotnet/tools:${containerEnv:PATH}",
+    "ASPIRE_CLI_TELEMETRY_OPTOUT": "true",
+    "ASPIRE_ALLOW_UNSECURED_TRANSPORT": "true",
+    "DOTNET_NOLOGO": "1"
   },
   "postCreateCommand": "bash .devcontainer/post-create.sh",
   "customizations": {
@@ -58,7 +60,7 @@
         "esbenp.prettier-vscode",
         "dbaeumer.vscode-eslint",
         "ms-vscode.makefile-tools",
-        "jakubkozera.csharp-dev-tools"
+        "microsoft-aspire.aspire-vscode"
       ],
       "settings": {
         "omnisharp.enableEditorConfigSupport": true,
@@ -78,6 +80,7 @@
             "path": "/usr/share/dotnet/dotnet"
           }
         ],
+        "dotnetAcquisitionExtension.allowInvalidPaths": true,
         "[csharp]": {
           "editor.formatOnSave": true,
           "editor.defaultFormatter": "ms-dotnettools.csharp"

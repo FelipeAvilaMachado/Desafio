@@ -9,55 +9,36 @@
 
 var builder = DistributedApplication.CreateBuilder(args);
 
-// Select cloud simulator with DESAFIO_SIMULATOR=aws|azure (default: aws).
-var simulator = (builder.Configuration["DESAFIO_SIMULATOR"] ?? "aws").Trim().ToLowerInvariant();
-var useAzureSimulator = simulator == "azure";
-
 // ── Infrastructure ────────────────────────────────────────────────────────────
 var sqlServer = builder.AddSqlServer("sqlserver");
 
 var lancamentosDb = sqlServer.AddDatabase("lancamentosdb");
 
-// Read-replica: same server in local dev; swap connection string in production
-var sqlReadOnly = sqlServer.AddDatabase("lancamentosdb-readonly");
-
 var cache = builder.AddRedis("cache");
 
 var messaging = builder.AddRabbitMQ("messaging");
-
-var cloudSimulator = useAzureSimulator
-    ? builder.AddContainer("floci-az", "floci/floci-az", "latest")
-        .WithEndpoint(targetPort: 4577, port: 4577, scheme: "http", name: "http")
-        .WithBindMount("/var/run/docker.sock", "/var/run/docker.sock")
-    : builder.AddContainer("floci", "floci/floci", "latest")
-        .WithEndpoint(targetPort: 4566, port: 4566, scheme: "http", name: "http")
-        .WithBindMount("/var/run/docker.sock", "/var/run/docker.sock");
 
 // ── Services ──────────────────────────────────────────────────────────────────
 
 // Lancamentos Minimal API (Desafio.Server)
 var lancamentos = builder.AddProject<Projects.Desafio_Server>("lancamentos")
     .WithReference(lancamentosDb)
-    .WithReference(sqlReadOnly)
     .WithReference(cache)
     .WithReference(messaging)
-    .WithEnvironment("DESAFIO_SIMULATOR", simulator)
     .WithHttpHealthCheck("/health")
     .WithExternalHttpEndpoints()
-    .WaitFor(cloudSimulator);
+    .WaitFor(lancamentosDb)
+    .WaitFor(cache)
+    .WaitFor(messaging);
 
 // Consolidado background worker
 var consolidado = builder.AddProject<Projects.Desafio_Consolidado_Worker>("consolidado")
     .WithReference(lancamentosDb)
-    .WithReference(sqlReadOnly)
     .WithReference(cache)
     .WithReference(messaging)
-    .WithEnvironment("DESAFIO_SIMULATOR", simulator)
     .WaitFor(lancamentosDb)
-    .WaitFor(sqlReadOnly)
     .WaitFor(cache)
-    .WaitFor(messaging)
-    .WaitFor(cloudSimulator);
+    .WaitFor(messaging);
 
 // Vite frontend (wired to the Lancamentos API)
 var webfrontend = builder.AddViteApp("webfrontend", "../frontend")

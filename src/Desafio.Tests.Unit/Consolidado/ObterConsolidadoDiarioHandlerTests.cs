@@ -22,6 +22,15 @@ sealed class TestConsolidadoDbContext(DbContextOptions<TestConsolidadoDbContext>
     public DbSet<Lancamento> Lancamentos => Set<Lancamento>();
     public DbSet<ConsolidadoDiario> ConsolidadosDiarios => Set<ConsolidadoDiario>();
 
+    public async Task UpsertConsolidadoDiarioAsync(ConsolidadoDiario consolidado, CancellationToken ct = default)
+    {
+        var existing = await ConsolidadosDiarios.FirstOrDefaultAsync(c => c.Data == consolidado.Data, ct);
+        if (existing is not null)
+            ConsolidadosDiarios.Remove(existing);
+
+        ConsolidadosDiarios.Add(consolidado);
+    }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Lancamento>(e =>

@@ -21,4 +21,6 @@ public interface IConsolidadoReadDbContext
 {
     DbSet<Lancamento> Lancamentos { get; }
     DbSet<ConsolidadoDiario> ConsolidadosDiarios { get; }
+    Task<int> SaveChangesAsync(CancellationToken ct = default);
+    Task UpsertConsolidadoDiarioAsync(ConsolidadoDiario consolidado, CancellationToken ct = default);
 }

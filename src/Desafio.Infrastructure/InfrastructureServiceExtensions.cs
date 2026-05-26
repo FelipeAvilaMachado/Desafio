@@ -11,7 +11,7 @@ namespace Desafio.Infrastructure;
 public static class InfrastructureServiceExtensions
 {
     /// <summary>
-    /// Registers EF Core DbContexts (write + read-replica), Redis, and outbox store.
+    /// Registers EF Core DbContexts, Redis, and outbox store.
     /// Call <c>AddAzureInfrastructure</c> or <c>AddAwsInfrastructure</c> afterwards
     /// to plug in the cloud-specific <see cref="IMessageBus"/> implementation.
     /// </summary>
@@ -26,11 +26,9 @@ public static class InfrastructureServiceExtensions
         services.AddScoped<ILancamentosDbContext>(sp =>
             sp.GetRequiredService<LancamentosDbContext>());
 
-        // Read-only DbContext (read replica — separate connection string)
+        // Consolidado read-model DbContext (same database as write model in local/dev)
         services.AddDbContext<ConsolidadoReadDbContext>(opts =>
-            opts.UseSqlServer(
-                configuration.GetConnectionString("lancamentosdb-readonly")
-                ?? configuration.GetConnectionString("lancamentosdb"))
+            opts.UseSqlServer(configuration.GetConnectionString("lancamentosdb"))
             .UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking));
 
         services.AddScoped<IConsolidadoReadDbContext>(sp =>

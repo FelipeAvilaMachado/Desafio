@@ -2,7 +2,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "AppHost (Azure Simulator)",
+            "name": "Desafio Aspire",
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "build",
@@ -17,28 +17,6 @@
                 "ASPIRE_DASHBOARD_MCP_ENDPOINT_URL": "http://localhost:18145",
                 "ASPIRE_RESOURCE_SERVICE_ENDPOINT_URL": "http://localhost:20061",
                 "ASPIRE_ALLOW_UNSECURED_TRANSPORT": "true",
-                "DESAFIO_SIMULATOR": "azure"
-            },
-            "console": "integratedTerminal",
-            "stopAtEntry": false
-        },
-        {
-            "name": "AppHost (AWS Simulator)",
-            "type": "coreclr",
-            "request": "launch",
-            "preLaunchTask": "build",
-            "program": "/tmp/desafio-build/Desafio.AppHost/bin/Debug/net10.0/Desafio.AppHost.dll",
-            "args": [],
-            "cwd": "${workspaceFolder}/src/Desafio.AppHost",
-            "env": {
-                "ASPNETCORE_ENVIRONMENT": "Development",
-                "DOTNET_ENVIRONMENT": "Development",
-                "ASPNETCORE_URLS": "http://localhost:15192",
-                "ASPIRE_DASHBOARD_OTLP_ENDPOINT_URL": "http://localhost:19294",
-                "ASPIRE_DASHBOARD_MCP_ENDPOINT_URL": "http://localhost:18145",
-                "ASPIRE_RESOURCE_SERVICE_ENDPOINT_URL": "http://localhost:20061",
-                "ASPIRE_ALLOW_UNSECURED_TRANSPORT": "true",
-                "DESAFIO_SIMULATOR": "aws"
             },
             "console": "integratedTerminal",
             "stopAtEntry": false

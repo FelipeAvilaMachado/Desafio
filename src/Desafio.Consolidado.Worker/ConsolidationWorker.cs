@@ -24,7 +24,7 @@ public sealed class ConsolidationWorker(
     IConnectionMultiplexer redis,
     ILogger<ConsolidationWorker> logger) : BackgroundService
 {
-    private static readonly TimeSpan PollingInterval = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan PollingInterval = TimeSpan.FromMinutes(2);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -80,15 +80,7 @@ public sealed class ConsolidationWorker(
             .ToListAsync(ct);
 
         var consolidado = ConsolidadoDiario.Calcular(date, lancamentos);
-
-        // Upsert into the consolidado read store
-        var existing = await readDb.ConsolidadosDiarios
-            .FirstOrDefaultAsync(c => c.Data == date, ct);
-
-        if (existing is not null)
-            readDb.ConsolidadosDiarios.Remove(existing);
-
-        readDb.ConsolidadosDiarios.Add(consolidado);
+        await readDb.UpsertConsolidadoDiarioAsync(consolidado, ct);
 
         // Invalidate Redis cache for this date
         var cacheKey = $"consolidado:diario:{date:yyyy-MM-dd}";
