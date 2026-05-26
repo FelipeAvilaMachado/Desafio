@@ -27,6 +27,7 @@ var lancamentos = builder.AddProject<Projects.Desafio_Server>("lancamentos")
     .WithReference(messaging)
     .WithHttpHealthCheck("/health")
     .WithExternalHttpEndpoints()
+    .PublishAsDockerFile(container => container.WithContainerRuntimeArgs("--cpus", "2", "--memory", "2g"))
     .WaitFor(lancamentosDb)
     .WaitFor(cache)
     .WaitFor(messaging);
