@@ -3,6 +3,7 @@ using Desafio.Features.Benchmark.ExecutarCarga;
 using Desafio.Features.Consolidado.Disparar;
 using Desafio.Features.Consolidado.ObterDiario;
 using Desafio.Features.Consolidado.ObterPeriodo;
+using Desafio.Features.Common.Outbox;
 using Desafio.Features.Lancamentos.Criar;
 using Desafio.Features.Lancamentos.Listar;
 using Desafio.Features.Lancamentos.ObterPorId;
@@ -32,6 +33,7 @@ builder.Services
 
 // Infrastructure: EF Core (single SQL Server database), Redis IConnectionMultiplexer, IOutboxStore
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddHostedService<OutboxProcessor>();
 
 // Azure-specific: Service Bus (IMessageBus) + Key Vault
 builder.Services.AddAzureInfrastructure(builder.Configuration);

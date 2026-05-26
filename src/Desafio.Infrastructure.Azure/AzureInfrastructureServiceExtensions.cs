@@ -17,11 +17,19 @@ public static class AzureInfrastructureServiceExtensions
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        // Azure Service Bus
+        // Local/dev RabbitMQ path (Aspire messaging)
         var sbConnectionString = configuration.GetConnectionString("messaging")
             ?? configuration["Azure:ServiceBus:ConnectionString"];
 
-        if (!string.IsNullOrWhiteSpace(sbConnectionString))
+        if (!string.IsNullOrWhiteSpace(sbConnectionString) &&
+            (sbConnectionString.StartsWith("amqp://", StringComparison.OrdinalIgnoreCase) ||
+             sbConnectionString.StartsWith("amqps://", StringComparison.OrdinalIgnoreCase)))
+        {
+            services.AddSingleton<IMessageBus>(sp =>
+                new RabbitMqMessageBus(sbConnectionString, sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<RabbitMqMessageBus>>()));
+        }
+        // Azure Service Bus path
+        else if (!string.IsNullOrWhiteSpace(sbConnectionString))
         {
             try
             {
