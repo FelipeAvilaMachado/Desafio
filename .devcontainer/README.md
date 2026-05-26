@@ -1,59 +1,59 @@
-# Desafio Dev Container
+# Dev Container do Desafio
 
-This devcontainer provides a complete development environment for the Desafio project, including both backend (.NET 10) and frontend (React/Node.js) support.
+Este devcontainer fornece um ambiente de desenvolvimento completo para o projeto Desafio, incluindo suporte tanto para backend (.NET 10) quanto para frontend (React/Node.js).
 
-## Features
+## Recursos
 
-- **Base Image**: custom `.devcontainer/Dockerfile`
-  - Based on `mcr.microsoft.com/devcontainers/dotnet:1-10.0-noble`
-  - Pre-installed with .NET 10 SDK
+- **Imagem Base**: `.devcontainer/Dockerfile` customizado
+  - Baseado em `mcr.microsoft.com/devcontainers/dotnet:1-10.0-noble`
+  - Vem com o SDK do .NET 10 pré-instalado
   - Ubuntu 24.04 LTS (noble)
-  - Removes stale Yarn apt source to avoid feature install failures
+  - Remove a fonte apt antiga do Yarn para evitar falhas na instalação de features
   
-- **Node.js Feature**: v20.19.0 (LTS)
-  - Supports frontend React development with Vite
-  - Supports AWS CDK if needed
+- **Feature do Node.js**: v20.19.0 (LTS)
+  - Suporta desenvolvimento frontend em React com Vite
+  - Suporta AWS CDK, se necessário
 
 - **Aspire CLI**
-  - Installed automatically in post-create as a global .NET tool (`aspire.cli`)
-  - Available as `aspire`
+  - Instalado automaticamente no post-create como uma ferramenta global do .NET (`aspire.cli`)
+  - Disponível como `aspire`
 
-- **Common Utilities**
-  - Provided by the base `mcr.microsoft.com/devcontainers/dotnet:1-10.0-noble` image
-  - Not redeclared in `devcontainer.json` to avoid re-running the feature during build
+- **Utilitários Comuns**
+  - Fornecidos pela imagem base `mcr.microsoft.com/devcontainers/dotnet:1-10.0-noble`
+  - Não redeclarados no `devcontainer.json` para evitar reexecução da feature durante o build
 
-- **VS Code Extensions**:
-  - C# Dev Kit with OmniSharp
-  - Prettier for code formatting
-  - ESLint for TypeScript/JavaScript
-  - .NET runtime support
+- **Extensões do VS Code**:
+  - C# Dev Kit com OmniSharp
+  - Prettier para formatação de código
+  - ESLint para TypeScript/JavaScript
+  - Suporte ao runtime do .NET
 
-- **Forwarded Ports**:
-  - 5000: Backend HTTP
-  - 5001: Backend HTTPS
-  - 5173: Frontend Dev Server (Vite)
-  - 5174: Frontend Preview
+- **Portas Encaminhadas**:
+  - 5000: HTTP do backend
+  - 5001: HTTPS do backend
+  - 5173: Servidor de desenvolvimento do frontend (Vite)
+  - 5174: Preview do frontend
   - 7000: App Host
-  - 7001: App Host HTTPS
+  - 7001: HTTPS do App Host
 
-## Usage
+## Uso
 
-1. **Open in Dev Container**
-   - In VS Code, use `Remote - Containers: Reopen in Container`
-   - Or click the green `><` icon in the bottom left
+1. **Abrir no Dev Container**
+   - No VS Code, use `Remote - Containers: Reopen in Container`
+   - Ou clique no ícone verde `><` no canto inferior esquerdo
 
-2. **Post-Create Setup**
-   - The container automatically runs `post-create.sh`
-   - Restores all .NET projects
-   - Installs frontend and CDK dependencies
-  - Installs/updates Aspire CLI
+2. **Configuração Pós-Criação**
+   - O container executa automaticamente o `post-create.sh`
+   - Restaura todos os projetos .NET
+   - Instala as dependências do frontend e do CDK
+  - Instala/atualiza o Aspire CLI
 
-3. **Running the Project**
+3. **Executando o Projeto**
 
    **Backend:**
    ```bash
    dotnet run --project Desafio.Server
-   # or
+   # ou
    dotnet run --project Desafio.AppHost
    ```
 
@@ -63,34 +63,34 @@ This devcontainer provides a complete development environment for the Desafio pr
    npm run dev
    ```
 
-   **Tests:**
+   **Testes:**
    ```bash
    dotnet test
    ```
 
-   **Linting:**
+   **Lint:**
    ```bash
    cd frontend
    npm run lint
    ```
 
-## Environment Details
+## Detalhes do Ambiente
 
-- **Container OS**: Ubuntu 24.04 LTS
-- **.NET Version**: 10.x
-- **Node Version**: 20.19.0
-- **NPM**: Latest compatible version
-- **All backends available**: AWS, Azure, Local
+- **SO do container**: Ubuntu 24.04 LTS
+- **Versão do .NET**: 10.x
+- **Versão do Node**: 20.19.0
+- **NPM**: Versão compatível mais recente
+- **Todos os backends disponíveis**: AWS, Azure, Local
 
-## Customization
+## Personalização
 
-Edit `.devcontainer/devcontainer.json` to:
-- Add or remove forwarded ports
-- Install additional VS Code extensions
-- Modify mount points or environment variables
-- Change the post-create script
+Edite `.devcontainer/devcontainer.json` para:
+- Adicionar ou remover portas encaminhadas
+- Instalar extensões adicionais do VS Code
+- Modificar pontos de montagem ou variáveis de ambiente
+- Alterar o script de post-create
 
-Edit `.devcontainer/post-create.sh` to:
-- Run additional setup commands
-- Download additional tools
-- Configure environment-specific settings
+Edite `.devcontainer/post-create.sh` para:
+- Executar comandos adicionais de configuração
+- Baixar ferramentas adicionais
+- Configurar ajustes específicos de ambiente
