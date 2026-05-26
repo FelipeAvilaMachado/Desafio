@@ -32,6 +32,11 @@ interface LoadStats {
   failed: number;
   elapsedMs: number;
   reqPerSecond: number;
+  p50Ms?: number;
+  p95Ms?: number;
+  p99Ms?: number;
+  errorSamples?: string[];
+  source?: 'browser' | 'server';
 }
 
 const pad2 = (value: number) => value.toString().padStart(2, '0');
@@ -277,7 +282,7 @@ function App() {
       const elapsedMs = performance.now() - start;
       const reqPerSecond = elapsedMs > 0 ? (success / elapsedMs) * 1000 : success;
 
-      setLoadStats({ total, success, failed, elapsedMs, reqPerSecond });
+      setLoadStats({ total, success, failed, elapsedMs, reqPerSecond, source: 'browser' });
 
       if (dispararAposCarga) {
         await onDispararConsolidacao();
@@ -286,6 +291,29 @@ function App() {
       }
     } catch (error) {
       setGlobalError(error instanceof Error ? error.message : 'Falha durante teste de carga');
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  const onRodarBenchmarkServidor = async () => {
+    setGlobalError(null);
+    setWorking(true);
+
+    try {
+      const result = await apiFetch<LoadStats>('/api/benchmark/carga', {
+        method: 'POST',
+        body: JSON.stringify({
+          total: loadTotal,
+          concorrencia: loadConcurrency,
+          dataBase: consultaData,
+        }),
+      });
+
+      setLoadStats({ ...result, source: 'server' });
+      await refreshAll();
+    } catch (error) {
+      setGlobalError(error instanceof Error ? error.message : 'Falha no benchmark servidor');
     } finally {
       setWorking(false);
     }
@@ -409,9 +437,14 @@ function App() {
                 Disparar consolidação automaticamente ao final
               </label>
             </div>
-            <button type="button" className="primary" onClick={onRodarCarga} disabled={working || loading}>
-              Rodar carga
-            </button>
+            <div className="button-row">
+              <button type="button" className="primary" onClick={onRodarCarga} disabled={working || loading}>
+                Rodar carga (browser)
+              </button>
+              <button type="button" className="secondary" onClick={onRodarBenchmarkServidor} disabled={working || loading}>
+                Benchmark servidor
+              </button>
+            </div>
 
             {loadStats && (
               <div className="mini-panel">
@@ -419,6 +452,15 @@ function App() {
                 <p>
                   {loadStats.success}/{loadStats.total} sucesso, {loadStats.failed} falha, {loadStats.reqPerSecond.toFixed(2)} req/s
                 </p>
+                <p>Origem: {loadStats.source === 'server' ? 'Servidor' : 'Browser'}</p>
+                {typeof loadStats.p50Ms === 'number' && (
+                  <p>
+                    Latência p50/p95/p99: {loadStats.p50Ms.toFixed(2)}ms / {loadStats.p95Ms?.toFixed(2)}ms / {loadStats.p99Ms?.toFixed(2)}ms
+                  </p>
+                )}
+                {loadStats.errorSamples && loadStats.errorSamples.length > 0 && (
+                  <p>Erros exemplo: {loadStats.errorSamples.join(' | ')}</p>
+                )}
               </div>
             )}
           </div>

@@ -1,4 +1,5 @@
 using Desafio.Features.Common.Auth;
+using Desafio.Features.Benchmark.ExecutarCarga;
 using Desafio.Features.Consolidado.Disparar;
 using Desafio.Features.Consolidado.ObterDiario;
 using Desafio.Features.Consolidado.ObterPeriodo;
@@ -22,6 +23,7 @@ builder.Services.AddProblemDetails();
 // Vertical slice handlers (each slice registers its own IHandler + logging decorator)
 builder.Services
     .AddCriarLancamento()
+    .AddExecutarBenchmarkCarga()
     .AddListarLancamentos()
     .AddObterLancamentoPorId()
     .AddDispararConsolidacao()
@@ -51,6 +53,7 @@ if (app.Environment.IsDevelopment())
 // All business endpoints under /api
 var api = app.MapGroup("/api");
 api.MapCriarLancamento();
+api.MapExecutarBenchmarkCarga();
 api.MapListarLancamentos();
 api.MapObterLancamentoPorId();
 api.MapDispararConsolidacao();
