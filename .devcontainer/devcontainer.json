@@ -1,0 +1,96 @@
+{
+  "name": "Desafio - .NET 10 & Node.js",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "privileged": true,
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "20.19.0"
+    }
+  },
+  "forwardPorts": [
+    5000,
+    5001,
+    5173,
+    5174,
+    7000,
+    7001
+  ],
+  "portsAttributes": {
+    "5000": {
+      "label": "Backend HTTP",
+      "onAutoForward": "notify"
+    },
+    "5001": {
+      "label": "Backend HTTPS",
+      "onAutoForward": "notify"
+    },
+    "5173": {
+      "label": "Frontend Dev Server",
+      "onAutoForward": "notify"
+    },
+    "5174": {
+      "label": "Frontend Preview",
+      "onAutoForward": "notify"
+    },
+    "7000": {
+      "label": "App Host",
+      "onAutoForward": "notify"
+    },
+    "7001": {
+      "label": "App Host HTTPS",
+      "onAutoForward": "notify"
+    }
+  },
+  "remoteEnv": {
+    "DOTNET_ROOT": "/usr/local/dotnet",
+    "PATH": "/usr/local/dotnet:/home/vscode/.dotnet/tools:${containerEnv:PATH}",
+    "ASPIRE_CLI_TELEMETRY_OPTOUT": "true"
+  },
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-dotnettools.csharp",
+        "ms-dotnettools.vscode-dotnet-runtime",
+        "esbenp.prettier-vscode",
+        "dbaeumer.vscode-eslint",
+        "ms-vscode.makefile-tools",
+        "jakubkozera.csharp-dev-tools"
+      ],
+      "settings": {
+        "omnisharp.enableEditorConfigSupport": true,
+        "omnisharp.enableRoslynAnalyzers": true,
+        "omnisharp.organizeImportsOnFormat": true,
+        "dotnetAcquisitionExtension.existingDotnetPath": [
+          {
+            "extensionId": "ms-dotnettools.csharp",
+            "path": "/usr/share/dotnet/dotnet"
+          },
+          {
+            "extensionId": "ms-dotnettools.csdevkit",
+            "path": "/usr/share/dotnet/dotnet"
+          },
+          {
+            "extensionId": "ms-dotnettools.vscode-dotnet-runtime",
+            "path": "/usr/share/dotnet/dotnet"
+          }
+        ],
+        "[csharp]": {
+          "editor.formatOnSave": true,
+          "editor.defaultFormatter": "ms-dotnettools.csharp"
+        },
+        "[typescript]": {
+          "editor.formatOnSave": true,
+          "editor.defaultFormatter": "esbenp.prettier-vscode"
+        },
+        "[javascript]": {
+          "editor.formatOnSave": true,
+          "editor.defaultFormatter": "esbenp.prettier-vscode"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,16 @@
+<Solution>
+  <Project Path="Desafio.Tests.Unit/Desafio.Tests.Unit.csproj" />
+  <Project Path="frontend/frontend.esproj">
+    <Build />
+    <Deploy />
+  </Project>
+  <Project Path="Desafio.AppHost/Desafio.AppHost.csproj" />
+  <Project Path="Desafio.Consolidado.Worker/Desafio.Consolidado.Worker.csproj" />
+  <Project Path="Desafio.Features/Desafio.Features.csproj" />
+  <Project Path="Desafio.Functions.Aws/Desafio.Functions.Aws.csproj" />
+  <Project Path="Desafio.Functions.Azure/Desafio.Functions.Azure.csproj" />
+  <Project Path="Desafio.Infrastructure.Aws/Desafio.Infrastructure.Aws.csproj" />
+  <Project Path="Desafio.Infrastructure.Azure/Desafio.Infrastructure.Azure.csproj" />
+  <Project Path="Desafio.Infrastructure/Desafio.Infrastructure.csproj" />
+  <Project Path="Desafio.Server/Desafio.Server.csproj" />
+</Solution>

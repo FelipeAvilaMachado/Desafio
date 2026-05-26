@@ -1,0 +1,26 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Worker">
+  <!-- Azure Functions Isolated Process host -->
+  <!-- Run locally: func start (requires Azure Functions Core Tools v4) -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>dotnet-Desafio.Functions.Azure-28c86af3-c475-4e9c-9739-ab110b9cafbd</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.ApplicationInsights.WorkerService" Version="3.1.1" />
+    <PackageReference Include="Microsoft.Azure.Functions.Worker" Version="2.52.0" />
+    <PackageReference Include="Microsoft.Azure.Functions.Worker.Extensions.Http" Version="3.3.0" />
+    <PackageReference Include="Microsoft.Azure.Functions.Worker.Extensions.Http.AspNetCore" Version="2.1.0" />
+    <PackageReference Include="Microsoft.Azure.Functions.Worker.Sdk" Version="2.0.7" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.8" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Desafio.Features\Desafio.Features.csproj" />
+    <ProjectReference Include="..\Desafio.Infrastructure\Desafio.Infrastructure.csproj" />
+    <ProjectReference Include="..\Desafio.Infrastructure.Azure\Desafio.Infrastructure.Azure.csproj" />
+  </ItemGroup>
+</Project>

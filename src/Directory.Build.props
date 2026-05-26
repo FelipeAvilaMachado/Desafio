@@ -1,0 +1,18 @@
+<Project>
+  <!--
+    When running inside the Linux dev container, redirect build artifacts out of the
+    Windows-mounted workspace (9P filesystem) into a container-local tmpfs path.
+    This avoids I/O errors caused by Windows-locked files and improves build performance.
+  -->
+  <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('Linux'))">
+    <MSBuildProjectExtensionsPath>/tmp/desafio-build/$(MSBuildProjectName)/obj/</MSBuildProjectExtensionsPath>
+    <BaseIntermediateOutputPath>/tmp/desafio-build/$(MSBuildProjectName)/obj/</BaseIntermediateOutputPath>
+    <BaseOutputPath>/tmp/desafio-build/$(MSBuildProjectName)/bin/</BaseOutputPath>
+    <!--
+      When BaseIntermediateOutputPath is redirected, the SDK no longer auto-excludes
+      the project-local obj/ folder from the compile glob. Re-add it explicitly so
+      that Windows-built .cs files in obj/ are not picked up on Linux.
+    -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);obj\**;obj/**</DefaultItemExcludes>
+  </PropertyGroup>
+</Project>

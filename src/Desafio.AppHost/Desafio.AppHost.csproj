@@ -1,0 +1,23 @@
+<Project Sdk="Aspire.AppHost.Sdk/13.2.4">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <UserSecretsId>3e41fe36-fab8-40c7-ae0a-0e77f018c874</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Desafio.Server\Desafio.Server.csproj" />
+    <ProjectReference Include="..\Desafio.Consolidado.Worker\Desafio.Consolidado.Worker.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+	  <PackageReference Include="Aspire.Hosting.AppHost" Version="13.3.5" />
+    <PackageReference Include="Aspire.Hosting.JavaScript" Version="13.3.5" />
+    <PackageReference Include="Aspire.Hosting.RabbitMQ" Version="13.3.5" />
+    <PackageReference Include="Aspire.Hosting.Redis" Version="13.3.5" />
+    <PackageReference Include="Aspire.Hosting.SqlServer" Version="13.3.5" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,123 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Description: >
+  Desafio Cash Flow — AWS SAM template
+  Deploys the Lancamentos API as an AWS Lambda function behind an API Gateway HTTP API.
+  The Consolidado Worker can be deployed as an ECS Fargate task or a separate scheduled Lambda.
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 512
+    Runtime: dotnet10
+    Architectures:
+      - x86_64
+    Environment:
+      Variables:
+        ASPNETCORE_ENVIRONMENT: Production
+        ConnectionStrings__lancamentosdb: !Sub '{{resolve:secretsmanager:${AWS::StackName}/db-connection}}'
+        ConnectionStrings__lancamentosdb-readonly: !Sub '{{resolve:secretsmanager:${AWS::StackName}/db-readonly-connection}}'
+        ConnectionStrings__cache: !Ref ElastiCacheEndpoint
+        Aws__Sqs__DefaultQueueUrl: !Ref LancamentosCriadosQueue
+        Auth__Cognito__ValidToken: !Sub '{{resolve:secretsmanager:${AWS::StackName}/cognito-token}}'
+        Auth__ApiGateway__ApiKey: !Sub '{{resolve:secretsmanager:${AWS::StackName}/apigateway-key}}'
+
+Parameters:
+  ElastiCacheEndpoint:
+    Type: String
+    Description: ElastiCache Redis endpoint (host:port)
+    Default: localhost:6379
+
+Resources:
+
+  # ── API Lambda ────────────────────────────────────────────────────────────────
+  CashFlowApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: desafio-cashflow-api
+      Description: Cash Flow Lancamentos API — Vertical Slice handlers
+      CodeUri: ../../Desafio.Functions.Aws/
+      Handler: Desafio.Functions.Aws::Desafio.Functions.Aws.LambdaEntryPoint::FunctionHandlerAsync
+      Events:
+        ApiGatewayProxy:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref CashFlowHttpApi
+            Path: /{proxy+}
+            Method: ANY
+      Policies:
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt LancamentosCriadosQueue.QueueName
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${AWS::StackName}/*'
+
+  # ── API Gateway HTTP API ───────────────────────────────────────────────────────
+  CashFlowHttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      Description: Cash Flow API Gateway
+      CorsConfiguration:
+        AllowOrigins:
+          - '*'
+        AllowMethods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - OPTIONS
+        AllowHeaders:
+          - Content-Type
+          - Authorization
+          - x-api-key
+
+  # ── SQS Queue (LancamentoCriadoEvent) ─────────────────────────────────────────
+  LancamentosCriadosQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: desafio-lancamentos-criados
+      MessageRetentionPeriod: 86400  # 24 hours
+      VisibilityTimeout: 60
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt LancamentosCriadosDLQ.Arn
+        maxReceiveCount: 3
+
+  LancamentosCriadosDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: desafio-lancamentos-criados-dlq
+      MessageRetentionPeriod: 604800  # 7 days
+
+  # ── Consolidado Worker Lambda (EventBridge schedule) ─────────────────────────
+  ConsolidadoWorkerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: desafio-consolidado-worker
+      Description: Consolidado Worker — recalculates daily cash flow summaries
+      CodeUri: ../../Desafio.Consolidado.Worker/
+      Handler: Desafio.Consolidado.Worker::Desafio.Consolidado.Worker.LambdaBootstrap::Handler
+      Events:
+        ScheduledTrigger:
+          Type: ScheduleV2
+          Properties:
+            ScheduleExpression: rate(5 minutes)
+            Description: Recalculate consolidado every 5 minutes
+        SqsTrigger:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt LancamentosCriadosQueue.Arn
+            BatchSize: 10
+            FunctionResponseTypes:
+              - ReportBatchItemFailures
+      Policies:
+        - SQSPollerPolicy:
+            QueueName: !GetAtt LancamentosCriadosQueue.QueueName
+
+Outputs:
+  CashFlowApiUrl:
+    Description: API Gateway endpoint URL
+    Value: !Sub 'https://${CashFlowHttpApi}.execute-api.${AWS::Region}.amazonaws.com'
+
+  LancamentosCriadosQueueUrl:
+    Description: SQS queue URL for LancamentoCriadoEvent
+    Value: !Ref LancamentosCriadosQueue
